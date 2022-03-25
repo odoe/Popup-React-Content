@@ -62,7 +62,7 @@ function App() {
         function setContentInfo(center) {
           setPopupData({
             title: "My Popup with React Portal",
-            description: `This is my React Component: center = ${JSON.stringify(center.toJSON())}`,
+            description: `This is my React Portal: center = ${JSON.stringify(center.toJSON())}`,
           });
           return popupRoot;
         }
