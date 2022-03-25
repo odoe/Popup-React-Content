@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from "react";
-import ReactDOM from "react-dom";
+import React, { useRef, useEffect, useState } from "react";
 
 import PopupInfo from "./PopupInfo";
+import PopupPortal from "./PopupPortal";
 
 import SceneView from "@arcgis/core/views/SceneView";
 import WebScene from "@arcgis/core/WebScene";
@@ -12,6 +12,8 @@ const popupRoot = document.createElement('div');
 
 function App() {
   const mapDiv = useRef(null);
+
+  const [ popupData, setPopupData ] = useState({});
 
   useEffect(() => {
     if (mapDiv.current) {
@@ -43,42 +45,36 @@ function App() {
         sceneView.on("click", (event) => {
           // Make sure that there is a valid latitude/longitude
           if (event && event.mapPoint) {
-
             sceneView.popup.open({
-              // Set the popup's title to the coordinates of the location
               title: "My Popup",
-              location: event.mapPoint, // Set the location of the popup to the clicked location
-              content: setContentInfo(sceneView.center, sceneView.scale),
+              location: event.mapPoint,
+              content: setContentInfo(sceneView.center),
             });
           } else {
             sceneView.popup.open({
-              // Set the popup's title to the coordinates of the location
               title: "Invalid point location",
-              location: event.mapPoint, // Set the location of the popup to the clicked location
+              location: event.mapPoint,
               content: "Please click on a valid location.",
             });
           }
         });
 
-        function setContentInfo(center, scale) {
-          ReactDOM.unmountComponentAtNode(popupRoot)
-          ReactDOM.render(
-            <PopupInfo
-              data={{
-                title: "My Popup with React",
-                description:
-                  `This is my React Component: center = ${JSON.stringify(center.toJSON())}`,
-              }}
-            />,
-            popupRoot
-          );
+        function setContentInfo(center) {
+          setPopupData({
+            title: "My Popup with React Portal",
+            description: `This is my React Component: center = ${JSON.stringify(center.toJSON())}`,
+          });
           return popupRoot;
         }
       });
     }
   }, [mapDiv]);
 
-  return <div className="mapDiv" ref={mapDiv}></div>;
+  return <div className="mapDiv" ref={mapDiv}>
+    <PopupPortal mount={popupRoot}>
+      <PopupInfo data={popupData}></PopupInfo>
+    </PopupPortal>
+  </div>;
 }
 
 export default App;
