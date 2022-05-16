@@ -3,8 +3,10 @@ import React, { useRef, useEffect, useState } from "react";
 import PopupInfo from "./PopupInfo";
 import PopupPortal from "./PopupPortal";
 
-import SceneView from "@arcgis/core/views/SceneView";
-import WebScene from "@arcgis/core/WebScene";
+import MapView from "@arcgis/core/views/MapView";
+import ArcGISMap from "@arcgis/core/Map";
+import GeoJSONLayer from "@arcgis/core/layers/GeoJSONLayer";
+import { whenOnce, watch } from "@arcgis/core/core/reactiveUtils";
 
 import "./App.css";
 
@@ -17,56 +19,113 @@ function App() {
 
   useEffect(() => {
     if (mapDiv.current) {
-      const map = new WebScene({
-        portalItem: {
-          id: "5a392557cffb485f8fe004e668e9edc0",
+      const clusterConfig = {
+        type: "cluster",
+        clusterRadius: "100px",
+        popupTemplate: {
+          title: "Cluster summary",
+          content: popupRoot,
+          fieldInfos: [
+            {
+              fieldName: "cluster_count",
+              format: {
+                places: 0,
+                digitSeparator: true
+              }
+            }
+          ]
         },
-      });
-
-      // Create the SceneView
-      const sceneView = new SceneView({
-        map: map,
-        container: mapDiv.current,
-        popup: {
-          actions: [],
-          dockEnabled: true,
-          dockOptions: {
-            buttonEnabled: true,
-            breakpoint: false,
-          },
-        },
-      });
-
-      // Listen for when the scene view is ready
-      sceneView.when(() => {
-        // It's necessary to overwrite the default click for the popup
-        // behavior in order to display your own popup
-        sceneView.popup.autoOpenEnabled = false;
-        sceneView.on("click", (event) => {
-          // Make sure that there is a valid latitude/longitude
-          if (event && event.mapPoint) {
-            sceneView.popup.open({
-              title: "My Popup",
-              location: event.mapPoint,
-              content: setContentInfo(sceneView.center),
-            });
-          } else {
-            sceneView.popup.open({
-              title: "Invalid point location",
-              location: event.mapPoint,
-              content: "Please click on a valid location.",
-            });
+        clusterMinSize: "24px",
+        clusterMaxSize: "60px",
+        labelingInfo: [
+          {
+            deconflictionStrategy: "none",
+            labelExpressionInfo: {
+              expression: "Text($feature.cluster_count, '#,###')"
+            },
+            symbol: {
+              type: "text",
+              color: "#004a5d",
+              font: {
+                weight: "bold",
+                family: "Noto Sans",
+                size: "12px"
+              }
+            },
+            labelPlacement: "center-center"
           }
-        });
+        ]
+      };
 
-        function setContentInfo(center) {
-          setPopupData({
-            title: "My Popup with React Portal",
-            description: `This is my React Portal: center = ${JSON.stringify(center.toJSON())}`,
-          });
-          return popupRoot;
+      const layer = new GeoJSONLayer({
+        title: "Earthquakes from the last month",
+        url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson",
+        copyright: "USGS Earthquakes",
+        outFields: ["*"],
+        featureReduction: clusterConfig,
+
+        // popupTemplates can still be viewed on
+        // individual features
+        popupTemplate: {
+          title: "Magnitude {mag} {type}",
+          content: popupRoot,
+          fieldInfos: [
+            {
+              fieldName: "time",
+              format: {
+                dateFormat: "short-date-short-time"
+              }
+            }
+          ]
+        },
+        renderer: {
+          type: "simple",
+          field: "mag",
+          symbol: {
+            type: "simple-marker",
+            size: 4,
+            color: "#69dcff",
+            outline: {
+              color: "rgba(0, 139, 174, 0.5)",
+              width: 5
+            }
+          }
         }
       });
+
+
+      const map = new ArcGISMap({
+        basemap: "dark-gray-vector",
+        layers: [layer]
+      });
+
+      const view = new MapView({
+        map,
+        container: mapDiv.current,
+        center: [-118, 34],
+        zoom: 6
+      });
+
+      watch(
+        () => view.popup.selectedFeature,
+        (feature) => {
+          console.log("Selected Feature", feature);
+          if (feature.isAggregate) {
+            setPopupData({
+              title: "My Cluster Popup with React Portal",
+              description: `Cluster ID: ${feature.attributes.clusterId}, has ${feature.attributes.cluster_count} features`,
+            });
+          }
+          else {
+            setPopupData({
+              title: "My Feature Popup with React Portal",
+              description: `Magnitude ${feature.attributes.mag} ${feature.attributes.type} hit ${feature.attributes.place} on ${feature.attributes.time}.`,
+            });
+          }
+        }
+      );
+
+      whenOnce(() => view.ready).then(() => console.log("view is ready"));
     }
   }, [mapDiv]);
 
