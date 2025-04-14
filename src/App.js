@@ -35,23 +35,23 @@ function App() {
             breakpoint: false,
           },
         },
+        popupEnabled: false
       });
 
       // Listen for when the scene view is ready
       sceneView.when(() => {
         // It's necessary to overwrite the default click for the popup
         // behavior in order to display your own popup
-        sceneView.popup.autoOpenEnabled = false;
         sceneView.on("click", (event) => {
           // Make sure that there is a valid latitude/longitude
           if (event && event.mapPoint) {
-            sceneView.popup.open({
+            sceneView.openPopup({
               title: "My Popup",
               location: event.mapPoint,
               content: setContentInfo(sceneView.center),
             });
           } else {
-            sceneView.popup.open({
+            sceneView.openPopup({
               title: "Invalid point location",
               location: event.mapPoint,
               content: "Please click on a valid location.",
